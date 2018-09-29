@@ -534,4 +534,20 @@ public class KylinConfig extends KylinConfigBase {
             return this.base() == ((KylinConfig) another).base();
     }
 
+    public Map<String, String> getSparkConf() {
+        return getPropertiesByPrefix("kylin.storage.columnar.spark-conf.");
+    }
+
+    public String getColumnarSparkEnv(String conf) {
+        return getPropertiesByPrefix("kylin.storage.columnar.spark-env.").get(conf);
+    }
+
+    public boolean isParquetSeparateFsEnabled() {
+        return Boolean.parseBoolean(getOptional("kylin.storage.columnar.separate-fs-enable", "false"));
+    }
+
+    public String getParquetSeparateOverrideFiles() {
+        return getOptional("kylin.storage.columnar.separate-override-files",
+                "core-site.xml,hdfs-site.xml,yarn-site.xml");
+    }
 }

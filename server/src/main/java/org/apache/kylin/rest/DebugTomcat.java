@@ -110,8 +110,11 @@ public class DebugTomcat {
 
         File webBase = new File("../webapp/app");
         File webInfDir = new File(webBase, "WEB-INF");
+        File metaInfDir = new File(webBase, "META-INF");
         FileUtils.deleteDirectory(webInfDir);
+        FileUtils.deleteDirectory(metaInfDir);
         FileUtils.copyDirectoryToDirectory(new File("../server/src/main/webapp/WEB-INF"), webBase);
+        FileUtils.copyDirectoryToDirectory(new File("../examples/test_case_data/webapps/META-INF"), webBase);
 
         Tomcat tomcat = new Tomcat();
         tomcat.setPort(port);
