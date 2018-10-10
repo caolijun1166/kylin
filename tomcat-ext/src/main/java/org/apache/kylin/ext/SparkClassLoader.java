@@ -133,8 +133,7 @@ public class SparkClassLoader extends URLClassLoader {
                 logger.info("Add kylin UDF jar to spark classloader : " + sparkJar.getName());
                 addURL(sparkJar.toURI().toURL());
             } else {
-                throw new RuntimeException(
-                        "Can not found kylin UDF jar, please set KYLIN_HOME and make sure the kylin-udf-*.jar exists in $KYLIN_HOME/lib");
+                logger.warn("Can not found kylin UDF jar, please set KYLIN_HOME and make sure the kylin-udf-*.jar exists in $KYLIN_HOME/lib");
             }
         } else if (Files.exists(Paths.get("../udf/target/classes"))) {
             //  for debugtomcat

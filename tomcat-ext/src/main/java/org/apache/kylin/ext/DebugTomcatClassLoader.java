@@ -36,7 +36,7 @@ public class DebugTomcatClassLoader extends ParallelWebappClassLoader {
             "com.sun.", "launcher.", "javax.", "org.ietf", "java", "org.omg", "org.w3c", "org.xml", "sunw.",
             // logging
             "org.slf4j", "org.apache.commons.logging", "org.apache.log4j", "org.apache.catalina", "org.apache.tomcat" };
-    private static final String[] THIS_CL_PRECEDENT_CLASSES = new String[] { "io.kyligence", "org.apache.kylin",
+    private static final String[] THIS_CL_PRECEDENT_CLASSES = new String[] { "org.apache.kylin",
             "org.apache.calcite" };
     private static final String[] CODE_GEN_CLASS = new String[] { "org.apache.spark.sql.catalyst.expressions.Object",
             "Baz" };

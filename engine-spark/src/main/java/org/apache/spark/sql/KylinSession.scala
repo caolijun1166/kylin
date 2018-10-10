@@ -24,7 +24,7 @@ import java.util.Properties
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
-import org.apache.kylin.common.KylinConfig
+import org.apache.kylin.common.{KylinConfig}
 import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.{SparkListener, SparkListenerApplicationEnd}
 import org.apache.spark.sql.SparkSession.Builder
@@ -43,9 +43,9 @@ class KylinSession(
     this(sc, None)
   }
 
-  @transient
-  override lazy val sessionState: SessionState =
-    KylinReflectUtils.getSessionState(sc, this).asInstanceOf[SessionState]
+//  @transient
+//  override lazy val sessionState: SessionState =
+//    KylinReflectUtils.getSessionState(sc, this).asInstanceOf[SessionState]
 
   override def newSession(): SparkSession = {
     new KylinSession(sparkContext, Some(sharedState))
@@ -154,6 +154,21 @@ object KylinSession extends Logging {
         .exists()) {
         val fairScheduler = KylinConfig.getKylinConfDir.getCanonicalPath + "/fairscheduler.xml"
         sparkConf.set("spark.scheduler.allocation.file", fairScheduler)
+      }
+
+      if (!"true".equalsIgnoreCase(System.getProperty("spark.local"))) {
+        if("yarn-client".equalsIgnoreCase(sparkConf.get("spark.master"))){
+          sparkConf.set("spark.yarn.dist.jars", kylinConfig.sparderJars)
+        } else {
+          sparkConf.set("spark.jars", kylinConfig.sparderJars)
+        }
+
+        val filePath = KylinConfig.getInstanceFromEnv.sparderJars
+          .split(",")
+          .filter(p => p.contains("storage-parquet"))
+          .apply(0)
+        val fileName = filePath.substring(filePath.lastIndexOf('/') + 1)
+        sparkConf.set("spark.executor.extraClassPath", fileName)
       }
 
       sparkConf

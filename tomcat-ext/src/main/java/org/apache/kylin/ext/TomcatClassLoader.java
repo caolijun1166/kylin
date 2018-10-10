@@ -39,7 +39,7 @@ public class TomcatClassLoader extends ParallelWebappClassLoader {
             // logging
             "org.slf4j", "org.apache.commons.logging", "org.apache.log4j", "org.apache.catalina", "org.apache.tomcat" };
 
-    private static String[] THIS_CL_PRECEDENT_CLASSES = new String[] { "io.kyligence", "org.apache.kylin",
+    private static String[] THIS_CL_PRECEDENT_CLASSES = new String[] { "org.apache.kylin",
             "org.apache.calcite" };
 
     private static String[] CODEGEN_CLASSES = new String[] { "org.apache.spark.sql.catalyst.expressions.Object",

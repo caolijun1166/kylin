@@ -18,14 +18,16 @@
 
 package org.apache.kylin.gridtable;
 
+import com.google.common.base.Preconditions;
+import org.apache.kylin.common.util.ByteArray;
+import org.apache.kylin.common.util.BytesUtil;
+import org.apache.kylin.common.util.ImmutableBitSet;
+import org.apache.kylin.dimension.DictionaryDimEnc;
+import org.apache.kylin.metadata.datatype.DataTypeSerializer;
+
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Comparator;
-
-import org.apache.kylin.common.util.ByteArray;
-import org.apache.kylin.common.util.ImmutableBitSet;
-
-import com.google.common.base.Preconditions;
 
 public class GTRecord implements Comparable<GTRecord> {
 
@@ -95,7 +97,15 @@ public class GTRecord implements Comparable<GTRecord> {
         int pos = buf.position();
         for (int i = 0; i < selectedCols.trueBitCount(); i++) {
             int c = selectedCols.trueBitAt(i);
-            info.codeSystem.encodeColumnValue(c, values[i], buf);
+
+            DataTypeSerializer serializer = info.codeSystem.getSerializer(c);
+            if (serializer instanceof DictionaryDimEnc.DictionarySerializer) {
+                int len = serializer.peekLength(buf);
+                BytesUtil.writeUnsigned((Integer) values[i], len, buf);
+            } else {
+                info.codeSystem.encodeColumnValue(c, values[i], buf);
+            }
+
             int newPos = buf.position();
             cols[c].reset(buf.array(), buf.arrayOffset() + pos, newPos - pos);
             pos = newPos;

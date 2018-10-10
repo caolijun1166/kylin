@@ -18,15 +18,9 @@
 
 package org.apache.kylin.storage.gtrecord;
 
-import java.util.ArrayList;
-import java.util.BitSet;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import org.apache.kylin.common.KylinConfig;
 import org.apache.kylin.common.debug.BackdoorToggles;
 import org.apache.kylin.common.util.ByteArray;
@@ -48,6 +42,8 @@ import org.apache.kylin.gridtable.GTScanRequestBuilder;
 import org.apache.kylin.gridtable.GTUtil;
 import org.apache.kylin.gridtable.IGTComparator;
 import org.apache.kylin.metadata.expression.TupleExpression;
+import org.apache.kylin.metadata.filter.CompareTupleFilter;
+import org.apache.kylin.metadata.filter.LogicalTupleFilter;
 import org.apache.kylin.metadata.filter.TupleFilter;
 import org.apache.kylin.metadata.model.DynamicFunctionDesc;
 import org.apache.kylin.metadata.model.FunctionDesc;
@@ -56,9 +52,14 @@ import org.apache.kylin.storage.StorageContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
+import java.util.ArrayList;
+import java.util.BitSet;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 public class CubeScanRangePlanner extends ScanRangePlannerBase {
 
@@ -72,6 +73,7 @@ public class CubeScanRangePlanner extends ScanRangePlannerBase {
     protected CubeSegment cubeSegment;
     protected CubeDesc cubeDesc;
     protected Cuboid cuboid;
+    protected String filterPushDownSQL;
 
     public CubeScanRangePlanner(CubeSegment cubeSegment, Cuboid cuboid, TupleFilter filter, Set<TblColRef> dimensions, //
             Set<TblColRef> groupByDims, List<TblColRef> dynGroupsDims, List<TupleExpression> dynGroupExprs, //
@@ -104,6 +106,10 @@ public class CubeScanRangePlanner extends ScanRangePlannerBase {
         groupByPushDown.addAll(dynGroupsDims);
         this.gtFilter = GTUtil.convertFilterColumnsAndConstants(filter, gtInfo, mapping.getDim2gt(), groupByPushDown);
         this.havingFilter = havingFilter;
+
+        if (filter != null) {
+            this.filterPushDownSQL = toSqlFilter(filter);
+        }
 
         this.gtDimensions = mapping.makeGridTableColumns(dimensions);
         this.gtAggrGroups = mapping.makeGridTableColumns(replaceDerivedColumns(groupByPushDown, cubeSegment.getCubeDesc()));
@@ -171,6 +177,7 @@ public class CubeScanRangePlanner extends ScanRangePlannerBase {
             scanRequest = new GTScanRequestBuilder().setInfo(gtInfo).setRanges(scanRanges).setDimensions(gtDimensions)
                     .setAggrGroupBy(gtAggrGroups).setAggrMetrics(gtAggrMetrics).setAggrMetricsFuncs(gtAggrFuncs)
                     .setFilterPushDown(gtFilter)//
+                    .setFilterPushDownSQL(filterPushDownSQL)
                     .setRtAggrMetrics(gtRtAggrMetrics).setDynamicColumns(gtDynColumns)
                     .setExprsPushDown(tupleExpressionMap)//
                     .setAllowStorageAggregation(context.isNeedStorageAggregation())
@@ -182,6 +189,67 @@ public class CubeScanRangePlanner extends ScanRangePlannerBase {
             scanRequest = null;
         }
         return scanRequest;
+    }
+
+    private String toSqlFilter(TupleFilter tupleFilter) {
+        if (tupleFilter instanceof CompareTupleFilter) {
+            CompareTupleFilter filter = (CompareTupleFilter) tupleFilter;
+            TblColRef column = filter.getColumn();
+            String colName = column.getTableAlias() + "_" + column.getName();
+            switch (filter.getOperator()) {
+                case EQ:
+                    return colName + "=" + filter.getFirstValue();
+                case LT:
+                    return colName + "<" + filter.getFirstValue();
+                case GT:
+                    return colName + ">" + filter.getFirstValue();
+                case IN:
+                    String result = colName + "in (";
+
+                    for (Object value : filter.getValues()) {
+                        result += value + ",";
+                    }
+                    if (result.endsWith(",")) {
+                        result = result.substring(0, result.length() - 1);
+                    }
+                    result += ")";
+                    return result;
+                default:
+                    throw new IllegalStateException("operator not supported: " + filter.getOperator() + " in " + tupleFilter);
+            }
+        } else if (tupleFilter instanceof LogicalTupleFilter) {
+            String result = "(";
+            switch (tupleFilter.getOperator()) {
+                case AND:
+                    for (TupleFilter filter : tupleFilter.getChildren()) {
+                        String child = toSqlFilter(filter);
+                        if (child != null) {
+                            result += child + " and ";
+                        }
+                    }
+                    if (result.endsWith(" and ")) {
+                        result = result.substring(0, result.lastIndexOf(" and "));
+                    }
+                    break;
+                case OR:
+                    for (TupleFilter filter : tupleFilter.getChildren()) {
+                        String child = toSqlFilter(filter);
+                        if (child != null) {
+                            result += child + " or ";
+                        }
+                    }
+                    if (result.endsWith(" or ")) {
+                        result = result.substring(0, result.lastIndexOf(" or "));
+                    }
+                    break;
+                default:
+                    throw new IllegalArgumentException("Operator " + tupleFilter.getOperator() + " is not supported");
+            }
+            result += ")";
+            return result;
+        }
+
+        throw new IllegalArgumentException("Tuple Filter " + tupleFilter + " is not supported");
     }
 
     /**

@@ -287,6 +287,10 @@ public class JobBuilderSupport {
         return getCuboidRootPath(seg.getLastBuildJobID());
     }
 
+    public String getCuboidRootPath() {
+        return getCuboidRootPath(seg.getLastBuildJobID());
+    }
+
     public void appendMapReduceParameters(StringBuilder buf) {
         appendMapReduceParameters(buf, JobEngineConfig.DEFAUL_JOB_CONF_SUFFIX);
     }
