@@ -244,7 +244,9 @@ public class SparkCubeHFile extends AbstractApplication implements Serializable 
             counterMap.put(ExecutableConstants.HDFS_BYTES_WRITTEN, String.valueOf(jobListener.metrics.getBytesWritten()));
 
             // save counter to hdfs
-            HadoopUtil.writeToSequenceFile(sc.hadoopConfiguration(), counterPath, counterMap);
+            Configuration hadoopconf = sc.hadoopConfiguration();
+            hadoopconf.addResource(new Path("/opt/hadoop/conf/core-site.xml"));
+            HadoopUtil.writeToSequenceFile(hadoopconf, counterPath, counterMap);
         }
     }
 

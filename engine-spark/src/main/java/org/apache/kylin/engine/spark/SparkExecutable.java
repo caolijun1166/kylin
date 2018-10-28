@@ -224,7 +224,17 @@ public class SparkExecutable extends AbstractExecutable {
 
             logger.info("Using " + hadoopConf + " as HADOOP_CONF_DIR");
 
+            //获取master类型
+//          String masterType = config.getSparkConfigOverrideWithSpecificName(getSparkConfigName()).get("spark.master");
+            String masterType = "k8s://https://10.1.30.85:6443";//从kylin.properties中获取失败，暂时写死用作测试
+            String local = "/opt/spark/examples/jars";//同上comment
+
             String jobJar = config.getKylinJobJarPath();
+
+            if (masterType.equals("k8s://https://10.1.30.85:6443")){
+                jobJar = jobJar.replaceAll("(.*)/(lib|jars)", local);
+            }
+
             if (StringUtils.isEmpty(jars)) {
                 jars = jobJar;
             }
@@ -243,22 +253,40 @@ public class SparkExecutable extends AbstractExecutable {
                         "export HADOOP_CONF_DIR=%s && %s/bin/spark-submit --class org.apache.kylin.common.util.SparkEntry ");
             }
 
+            //设置k8s任务名
+            if (masterType.equals("k8s://https://10.1.30.85:6443"))
+                stringBuilder.append(" --name kylin-spark ");
+
             Map<String, String> sparkConfs = config.getSparkConfigOverride();
 
             String sparkConfigName = getSparkConfigName();
             if (sparkConfigName != null) {
                 Map<String, String> sparkSpecificConfs = config.getSparkConfigOverrideWithSpecificName(sparkConfigName);
                 sparkConfs.putAll(sparkSpecificConfs);
+                local = sparkConfs.get("local");
+                sparkConfs.remove("local");
             }
-
             for (Map.Entry<String, String> entry : sparkConfs.entrySet()) {
                 stringBuilder.append(" --conf ").append(entry.getKey()).append("=").append(entry.getValue())
                         .append(" ");
             }
 
-            stringBuilder.append("--jars %s %s %s");
+            //判断资源管理是yarn还是k8s，并生成相应的参数
+            if (masterType.equals("k8s://https://10.1.30.85:6443")) {
+                String[] jarArray = jars.split(",");
+                for (int i = 0; i < jarArray.length; i++) {
+                    //将host环境中的jar包homepath替换成kylin.properties中指定的localhomepath
+                    jarArray[i] = jarArray[i].replaceAll("(.*)/(lib|jars)", local);
+                    stringBuilder.append("local://" + jarArray[i] + ",");
+                }
+                stringBuilder.append("local://" + jobJar + " %s");
+            } else {
+                stringBuilder.append("--jars " + jars + jobJar + " %s");
+            }
+
+
             final String cmd = String.format(Locale.ROOT, stringBuilder.toString(), hadoopConf,
-                    KylinConfig.getSparkHome(), jars, jobJar, formatArgs());
+                    KylinConfig.getSparkHome(), formatArgs());
             logger.info("cmd: " + cmd);
             final ExecutorService executorService = Executors.newSingleThreadExecutor();
             final CliCommandExecutor exec = new CliCommandExecutor();

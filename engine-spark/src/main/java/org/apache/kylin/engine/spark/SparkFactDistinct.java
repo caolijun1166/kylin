@@ -34,6 +34,7 @@ import org.apache.commons.cli.Option;
 import org.apache.commons.cli.OptionBuilder;
 import org.apache.commons.cli.Options;
 import org.apache.commons.io.output.ByteArrayOutputStream;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.ArrayPrimitiveWritable;
 import org.apache.hadoop.io.BytesWritable;
@@ -229,7 +230,9 @@ public class SparkFactDistinct extends AbstractApplication implements Serializab
             counterMap.put(ExecutableConstants.SOURCE_RECORDS_SIZE, String.valueOf(bytesWritten.value()));
 
             // save counter to hdfs
-            HadoopUtil.writeToSequenceFile(sc.hadoopConfiguration(), counterPath, counterMap);
+            Configuration hadoopconf = sc.hadoopConfiguration();
+            hadoopconf.addResource(new Path("/opt/hadoop/conf/core-site.xml"));
+            HadoopUtil.writeToSequenceFile(hadoopconf, counterPath, counterMap);
 
             HadoopUtil.deleteHDFSMeta(metaUrl);
         }
