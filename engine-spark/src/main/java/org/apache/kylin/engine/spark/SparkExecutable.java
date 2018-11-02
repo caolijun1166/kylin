@@ -253,21 +253,24 @@ public class SparkExecutable extends AbstractExecutable {
                         "export HADOOP_CONF_DIR=%s && %s/bin/spark-submit --class org.apache.kylin.common.util.SparkEntry ");
             }
 
-            //设置k8s任务名
-            if (masterType.equals("k8s://https://10.1.30.85:6443"))
-                stringBuilder.append(" --name kylin-spark ");
-
             Map<String, String> sparkConfs = config.getSparkConfigOverride();
+
+
+
+            masterType = sparkConfs.get("spark.master");
+
+            //设置k8s任务名
+            if (masterType.matches("k8s://(.*)")){
+                stringBuilder.append(" --name kylin-spark ");
+                local = sparkConfs.get("local");
+                sparkConfs.remove("local");
+            }
 
             String sparkConfigName = getSparkConfigName();
             if (sparkConfigName != null) {
                 Map<String, String> sparkSpecificConfs = config.getSparkConfigOverrideWithSpecificName(sparkConfigName);
                 sparkConfs.putAll(sparkSpecificConfs);
             }
-
-            local = sparkConfs.get("local");
-            masterType = sparkConfs.get("spark.master");
-            sparkConfs.remove("local");
 
             for (Map.Entry<String, String> entry : sparkConfs.entrySet()) {
                 stringBuilder.append(" --conf ").append(entry.getKey()).append("=").append(entry.getValue())
