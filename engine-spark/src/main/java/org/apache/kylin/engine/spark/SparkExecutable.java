@@ -226,8 +226,8 @@ public class SparkExecutable extends AbstractExecutable {
 
             //获取master类型
 //          String masterType = config.getSparkConfigOverrideWithSpecificName(getSparkConfigName()).get("spark.master");
-            String masterType = "k8s://https://10.1.30.85:6443";//从kylin.properties中获取失败，暂时写死用作测试
-            String local = "/opt/spark/examples/jars";//同上comment
+            String masterType = null;//从kylin.properties中获取失败，暂时写死用作测试
+            String local = null;//同上comment
 
             String jobJar = config.getKylinJobJarPath();
 
@@ -263,16 +263,19 @@ public class SparkExecutable extends AbstractExecutable {
             if (sparkConfigName != null) {
                 Map<String, String> sparkSpecificConfs = config.getSparkConfigOverrideWithSpecificName(sparkConfigName);
                 sparkConfs.putAll(sparkSpecificConfs);
-                local = sparkConfs.get("local");
-                sparkConfs.remove("local");
             }
+
+            local = sparkConfs.get("local");
+            masterType = sparkConfs.get("spark.master");
+            sparkConfs.remove("local");
+
             for (Map.Entry<String, String> entry : sparkConfs.entrySet()) {
                 stringBuilder.append(" --conf ").append(entry.getKey()).append("=").append(entry.getValue())
                         .append(" ");
             }
 
             //判断资源管理是yarn还是k8s，并生成相应的参数
-            if (masterType.equals("k8s://https://10.1.30.85:6443")) {
+            if (masterType.matches("k8s://(.*)")) {
                 String[] jarArray = jars.split(",");
                 for (int i = 0; i < jarArray.length; i++) {
                     //将host环境中的jar包homepath替换成kylin.properties中指定的localhomepath
