@@ -231,14 +231,6 @@ public class SparkExecutable extends AbstractExecutable {
 
             String jobJar = config.getKylinJobJarPath();
 
-            if (masterType.equals("k8s://https://10.1.30.85:6443")){
-                jobJar = jobJar.replaceAll("(.*)/(lib|jars)", local);
-            }
-
-            if (StringUtils.isEmpty(jars)) {
-                jars = jobJar;
-            }
-
             String segmentID = this.getParam(SparkCubingByLayer.OPTION_SEGMENT_ID.getOpt());
             CubeSegment segment = cube.getSegmentById(segmentID);
             Segments<CubeSegment> mergingSeg = cube.getMergingSegments(segment);
@@ -255,7 +247,13 @@ public class SparkExecutable extends AbstractExecutable {
 
             Map<String, String> sparkConfs = config.getSparkConfigOverride();
 
+            if (masterType.equals("k8s://https://10.1.30.85:6443")){
+                jobJar = jobJar.replaceAll("(.*)/(lib|jars)", local);
+            }
 
+            if (StringUtils.isEmpty(jars)) {
+                jars = jobJar;
+            }
 
             masterType = sparkConfs.get("spark.master");
 
