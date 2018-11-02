@@ -247,6 +247,8 @@ public class SparkExecutable extends AbstractExecutable {
 
             Map<String, String> sparkConfs = config.getSparkConfigOverride();
 
+            masterType = sparkConfs.get("spark.master");
+
             if (masterType.equals("k8s://https://10.1.30.85:6443")){
                 jobJar = jobJar.replaceAll("(.*)/(lib|jars)", local);
             }
@@ -254,8 +256,6 @@ public class SparkExecutable extends AbstractExecutable {
             if (StringUtils.isEmpty(jars)) {
                 jars = jobJar;
             }
-
-            masterType = sparkConfs.get("spark.master");
 
             //设置k8s任务名
             if (masterType.matches("k8s://(.*)")){
