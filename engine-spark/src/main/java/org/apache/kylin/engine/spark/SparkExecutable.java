@@ -249,19 +249,19 @@ public class SparkExecutable extends AbstractExecutable {
 
             masterType = sparkConfs.get("spark.master");
 
-            if (masterType.equals("k8s://https://10.1.30.85:6443")){
+            if (masterType.matches("k8s://(.*)")){
+                //设置k8s任务名
+                stringBuilder.append(" --name kylin-spark ");
+                //获取local jar home path
+                local = sparkConfs.get("local");
+                //移除该k-v
+                sparkConfs.remove("local");
+                //将jobJar的home path修改为local jar home path
                 jobJar = jobJar.replaceAll("(.*)/(lib|jars)", local);
             }
 
             if (StringUtils.isEmpty(jars)) {
                 jars = jobJar;
-            }
-
-            //设置k8s任务名
-            if (masterType.matches("k8s://(.*)")){
-                stringBuilder.append(" --name kylin-spark ");
-                local = sparkConfs.get("local");
-                sparkConfs.remove("local");
             }
 
             String sparkConfigName = getSparkConfigName();
