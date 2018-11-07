@@ -230,9 +230,10 @@ public class SparkFactDistinct extends AbstractApplication implements Serializab
             counterMap.put(ExecutableConstants.SOURCE_RECORDS_SIZE, String.valueOf(bytesWritten.value()));
 
             // save counter to hdfs
-            Configuration hadoopconf = sc.hadoopConfiguration();
-            hadoopconf.addResource(new Path("/opt/hadoop/conf/core-site.xml"));
-            HadoopUtil.writeToSequenceFile(hadoopconf, counterPath, counterMap);
+//            Configuration hadoopconf = sc.hadoopConfiguration();
+//            hadoopconf.addResource(new Path("/opt/hadoop/conf/core-site.xml"));
+//            HadoopUtil.writeToSequenceFile(hadoopconf, counterPath, counterMap);
+            HadoopUtil.writeToSequenceFile(sc.hadoopConfiguration(), counterPath, counterMap);
 
             HadoopUtil.deleteHDFSMeta(metaUrl);
         }
