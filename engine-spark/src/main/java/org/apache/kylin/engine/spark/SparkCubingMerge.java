@@ -176,7 +176,7 @@ public class SparkCubingMerge extends AbstractApplication implements Serializabl
 
             final int totalLevels = cubeSegment.getCuboidScheduler().getBuildLevel();
             final String[] inputFolders = StringSplitter.split(inputPath, ",");
-            FileSystem fs = HadoopUtil.getWorkingFileSystem();
+            FileSystem fs = HadoopUtil.getWorkingFileSystem(sc.hadoopConfiguration());
             boolean isLegacyMode = false;
             for (String inputFolder : inputFolders) {
                 Path baseCuboidPath = new Path(BatchCubingJobBuilder2.getCuboidOutputPathsByLevel(inputFolder, 0));
