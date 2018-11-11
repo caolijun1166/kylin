@@ -212,11 +212,6 @@
       <!-- Kylin -->
       <dependency>
         <groupId>org.apache.kylin</groupId>
-        <artifactId>atopcalcite</artifactId>
-        <version>${project.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.apache.kylin</groupId>
         <artifactId>kylin-core-common</artifactId>
         <version>${project.version}</version>
       </dependency>
@@ -641,6 +636,11 @@
         <artifactId>jackson-annotations</artifactId>
         <version>${jackson.version}</version>
       </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.dataformat</groupId>
+                <artifactId>jackson-dataformat-xml</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
 
       <!-- Spark dependency -->
       <dependency>
@@ -1238,7 +1238,6 @@
   </build>
 
   <modules>
-    <module>atopcalcite</module>
     <module>core-common</module>
     <module>core-metadata</module>
     <module>core-dictionary</module>
