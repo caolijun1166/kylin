@@ -593,7 +593,7 @@ public class OLAPAggregateRel extends Aggregate implements OLAPRel {
             typeFamilies.add(Util.first(type.getSqlTypeName().getFamily(), SqlTypeFamily.ANY));
         }
         return new SqlUserDefinedAggFunction(sqlIdentifier, ReturnTypes.explicit(returnType),
-                InferTypes.explicit(argTypes), OperandTypes.family(typeFamilies), aggFunction, false, false);
+                InferTypes.explicit(argTypes), OperandTypes.family(typeFamilies), aggFunction, false, false, typeFactory);
     }
 
     @Override
