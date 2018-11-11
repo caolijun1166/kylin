@@ -99,6 +99,7 @@ public class OLAPAggregateRel extends Aggregate implements OLAPRel {
         AGGR_FUNC_MAP.put("COUNT_DISTINCT", "COUNT_DISTINCT");
         AGGR_FUNC_MAP.put("MAX", "MAX");
         AGGR_FUNC_MAP.put("MIN", "MIN");
+        AGGR_FUNC_MAP.put("GROUPING", "GROUPING");
 
         Map<String, MeasureTypeFactory> udafFactories = MeasureTypeFactory.getUDAFFactories();
         for (Map.Entry<String, MeasureTypeFactory> entry : udafFactories.entrySet()) {
