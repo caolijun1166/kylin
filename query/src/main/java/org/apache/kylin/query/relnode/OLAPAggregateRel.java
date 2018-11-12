@@ -411,6 +411,10 @@ public class OLAPAggregateRel extends Aggregate implements OLAPRel {
             for (int i = 0; i < this.aggCalls.size(); i++) {
                 AggregateCall aggCall = this.hackAggCalls.get(i) != null ? this.hackAggCalls.get(i)
                         : this.aggCalls.get(i);
+                if (SqlStdOperatorTable.GROUPING == aggCall.getAggregation()) {
+                    this.rewriteAggCalls.add(aggCall);
+                    continue;
+                }
                 FunctionDesc cubeFunc = this.context.aggregations.get(i);
                 // filter needn,t rewrite aggfunc
                 // if it's not a cube, then the "needRewriteField func" should not resort to any rewrite fields,
