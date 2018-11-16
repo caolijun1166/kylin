@@ -511,6 +511,10 @@ public class JDBCResourceDAO {
         Connection connection = null;
         try {
             connection = connectionManager.getConn();
+            
+            // set a low translation level for best performance
+            connection.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
+            
             operation.execute(connection);
             queriedSqlNum++;
         } finally {
