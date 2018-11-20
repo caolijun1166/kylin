@@ -37,7 +37,6 @@ then
     mkdir -p ${_file}
 
     ${KYLIN_HOME}/bin/kylin.sh org.apache.kylin.common.persistence.ResourceTool download ${_file}
-    echo "metadata store backed up to ${_file}"
 
 elif [ "$1" == "fetch" ]
 then
@@ -46,11 +45,10 @@ then
 
     _now=$(date +"%Y_%m_%d_%H_%M_%S")
     _fileDst="${KYLIN_HOME}/meta_backups/meta_${_now}"
-    echo "Starting restoring $_fileDst"
+    echo "Starting fetching $_file to $_fileDst"
     mkdir -p $_fileDst
 
     ${KYLIN_HOME}/bin/kylin.sh org.apache.kylin.common.persistence.ResourceTool fetch $_fileDst $_file
-    echo "metadata store backed up to $_fileDst"
 
 elif [ "$1" == "restore" ]
 then
