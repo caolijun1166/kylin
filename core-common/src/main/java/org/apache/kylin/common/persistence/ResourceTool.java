@@ -39,9 +39,6 @@ import com.google.common.collect.Sets;
 
 public class ResourceTool {
 
-    private static String[] includes = null;
-    private static String[] excludes = null;
-
     private static final Logger logger = LoggerFactory.getLogger(ResourceTool.class);
 
     private static final Set<String> IMMUTABLE_PREFIX = Sets.newHashSet("/UUID");
@@ -62,50 +59,52 @@ public class ResourceTool {
             return;
         }
 
+        ResourceTool tool =  new ResourceTool();
+
         String include = System.getProperty("include");
         if (include != null) {
-            addIncludes(include.split("\\s*,\\s*"));
+            tool.addIncludes(include.split("\\s*,\\s*"));
         }
         String exclude = System.getProperty("exclude");
         if (exclude != null) {
-            addExcludes(exclude.split("\\s*,\\s*"));
+            tool.addExcludes(exclude.split("\\s*,\\s*"));
         }
 
-        addExcludes(IMMUTABLE_PREFIX.toArray(new String[IMMUTABLE_PREFIX.size()]));
+        tool.addExcludes(IMMUTABLE_PREFIX.toArray(new String[IMMUTABLE_PREFIX.size()]));
 
         String cmd = args[0];
         switch (cmd) {
         case "reset":
-            reset(args.length == 1 ? KylinConfig.getInstanceFromEnv() : KylinConfig.createInstanceFromUri(args[1]));
+            tool.reset(args.length == 1 ? KylinConfig.getInstanceFromEnv() : KylinConfig.createInstanceFromUri(args[1]));
             break;
         case "list":
-            list(KylinConfig.getInstanceFromEnv(), args[1]);
+            tool.list(KylinConfig.getInstanceFromEnv(), args[1]);
             break;
         case "download":
-            copy(KylinConfig.getInstanceFromEnv(), KylinConfig.createInstanceFromUri(args[1]), true);
+            tool.copy(KylinConfig.getInstanceFromEnv(), KylinConfig.createInstanceFromUri(args[1]), true);
+            System.out.println("Metadata backed up to " + args[1]);
             break;
         case "fetch":
-            copy(KylinConfig.getInstanceFromEnv(), KylinConfig.createInstanceFromUri(args[1]), args[2], true);
+            tool.copy(KylinConfig.getInstanceFromEnv(), KylinConfig.createInstanceFromUri(args[1]), args[2], true);
             break;
         case "upload":
-            copy(KylinConfig.createInstanceFromUri(args[1]), KylinConfig.getInstanceFromEnv());
+            tool.copy(KylinConfig.createInstanceFromUri(args[1]), KylinConfig.getInstanceFromEnv());
             break;
         case "remove":
-            remove(KylinConfig.getInstanceFromEnv(), args[1]);
+            tool.remove(KylinConfig.getInstanceFromEnv(), args[1]);
             break;
         case "cat":
-            cat(KylinConfig.getInstanceFromEnv(), args[1]);
+            tool.cat(KylinConfig.getInstanceFromEnv(), args[1]);
             break;
         default:
             System.out.println("Unknown cmd: " + cmd);
         }
     }
 
-    public static String[] getIncludes() {
-        return includes;
-    }
+    private static String[] includes = null;
+    private static String[] excludes = null;
 
-    public static void addIncludes(String[] arg) {
+    public void addIncludes(String[] arg) {
         if (arg != null) {
             if (includes != null) {
                 String[] nIncludes = new String[includes.length + arg.length];
@@ -118,11 +117,7 @@ public class ResourceTool {
         }
     }
 
-    public static String[] getExcludes() {
-        return excludes;
-    }
-
-    public static void addExcludes(String[] arg) {
+    public void addExcludes(String[] arg) {
         if (arg != null) {
             if (excludes != null) {
                 String[] nExcludes = new String[excludes.length + arg.length];
@@ -135,7 +130,7 @@ public class ResourceTool {
         }
     }
 
-    public static String cat(KylinConfig config, String path) throws IOException {
+    public String cat(KylinConfig config, String path) throws IOException {
         ResourceStore store = ResourceStore.getStore(config);
         InputStream is = store.getResource(path).inputStream;
         BufferedReader br = null;
@@ -154,19 +149,19 @@ public class ResourceTool {
         return sb.toString();
     }
 
-    public static NavigableSet<String> list(KylinConfig config, String path) throws IOException {
+    public NavigableSet<String> list(KylinConfig config, String path) throws IOException {
         ResourceStore store = ResourceStore.getStore(config);
         NavigableSet<String> result = store.listResources(path);
         System.out.println("" + result);
         return result;
     }
 
-    public static void copy(KylinConfig srcConfig, KylinConfig dstConfig, String path) throws IOException {
+    public void copy(KylinConfig srcConfig, KylinConfig dstConfig, String path) throws IOException {
         copy(srcConfig, dstConfig, path, false);
     }
 
     //Do NOT invoke this method directly, unless you want to copy and possibly overwrite immutable resources such as UUID.
-    public static void copy(KylinConfig srcConfig, KylinConfig dstConfig, String path, boolean copyImmutableResource)
+    public void copy(KylinConfig srcConfig, KylinConfig dstConfig, String path, boolean copyImmutableResource)
             throws IOException {
         ResourceStore src = ResourceStore.getStore(srcConfig);
         ResourceStore dst = ResourceStore.getStore(dstConfig);
@@ -176,12 +171,12 @@ public class ResourceTool {
         copyR(src, dst, path, getPathsSkipChildren(src), copyImmutableResource);
     }
 
-    public static void copy(KylinConfig srcConfig, KylinConfig dstConfig, List<String> paths) throws IOException {
+    public void copy(KylinConfig srcConfig, KylinConfig dstConfig, List<String> paths) throws IOException {
         copy(srcConfig, dstConfig, paths, false);
     }
 
     //Do NOT invoke this method directly, unless you want to copy and possibly overwrite immutable resources such as UUID.
-    public static void copy(KylinConfig srcConfig, KylinConfig dstConfig, List<String> paths,
+    public void copy(KylinConfig srcConfig, KylinConfig dstConfig, List<String> paths,
             boolean copyImmutableResource) throws IOException {
         ResourceStore src = ResourceStore.getStore(srcConfig);
         ResourceStore dst = ResourceStore.getStore(dstConfig);
@@ -193,17 +188,17 @@ public class ResourceTool {
         }
     }
 
-    public static void copy(KylinConfig srcConfig, KylinConfig dstConfig) throws IOException {
+    public void copy(KylinConfig srcConfig, KylinConfig dstConfig) throws IOException {
         copy(srcConfig, dstConfig, false);
     }
 
     //Do NOT invoke this method directly, unless you want to copy and possibly overwrite immutable resources such as UUID.
-    public static void copy(KylinConfig srcConfig, KylinConfig dstConfig, boolean copyImmutableResource)
+    public void copy(KylinConfig srcConfig, KylinConfig dstConfig, boolean copyImmutableResource)
             throws IOException {
         copy(srcConfig, dstConfig, "/", copyImmutableResource);
     }
 
-    public static void copyR(ResourceStore src, ResourceStore dst, String path, TreeSet<String> pathsSkipChildrenCheck,
+    public void copyR(ResourceStore src, ResourceStore dst, String path, TreeSet<String> pathsSkipChildrenCheck,
             boolean copyImmutableResource) throws IOException {
 
         if (!copyImmutableResource && IMMUTABLE_PREFIX.contains(path)) {
@@ -243,7 +238,7 @@ public class ResourceTool {
 
     }
 
-    private static TreeSet<String> getPathsSkipChildren(ResourceStore src) throws IOException {
+    private TreeSet<String> getPathsSkipChildren(ResourceStore src) throws IOException {
         TreeSet<String> pathsSkipChildrenCheck = new TreeSet<>();
 
         for (String resourceRoot : SKIP_CHILDREN_CHECK_RESOURCE_ROOT) {
@@ -274,12 +269,12 @@ public class ResourceTool {
         return true;
     }
 
-    public static void reset(KylinConfig config) throws IOException {
+    public void reset(KylinConfig config) throws IOException {
         ResourceStore store = ResourceStore.getStore(config);
         resetR(store, "/");
     }
 
-    public static void resetR(ResourceStore store, String path) throws IOException {
+    public void resetR(ResourceStore store, String path) throws IOException {
         NavigableSet<String> children = store.listResources(path);
         if (children == null) { // path is a resource (not a folder)
             if (matchFilter(path)) {
@@ -291,7 +286,7 @@ public class ResourceTool {
         }
     }
 
-    private static void remove(KylinConfig config, String path) throws IOException {
+    private void remove(KylinConfig config, String path) throws IOException {
         ResourceStore store = ResourceStore.getStore(config);
         resetR(store, path);
     }
