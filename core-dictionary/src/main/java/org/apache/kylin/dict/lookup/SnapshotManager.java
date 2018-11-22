@@ -208,7 +208,7 @@ public class SnapshotManager {
         logger.info("Loading snapshotTable from " + resourcePath + ", with loadData: " + loadData);
         ResourceStore store = getStore();
 
-        SnapshotTable table = store.getResource(resourcePath, SnapshotTable.class, loadData ? SnapshotTableSerializer.FULL_SERIALIZER : SnapshotTableSerializer.INFO_SERIALIZER);
+        SnapshotTable table = store.getResource(resourcePath, loadData ? SnapshotTableSerializer.FULL_SERIALIZER : SnapshotTableSerializer.INFO_SERIALIZER);
 
         if (loadData)
             logger.debug("Loaded snapshot at " + resourcePath);

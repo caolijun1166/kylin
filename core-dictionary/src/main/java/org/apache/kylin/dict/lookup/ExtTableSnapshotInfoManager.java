@@ -199,7 +199,7 @@ public class ExtTableSnapshotInfoManager {
 
     private ExtTableSnapshotInfo load(String resourcePath) throws IOException {
         ResourceStore store = TableMetadataManager.getInstance(this.config).getStore();
-        ExtTableSnapshotInfo snapshot = store.getResource(resourcePath, ExtTableSnapshotInfo.class, SNAPSHOT_SERIALIZER);
+        ExtTableSnapshotInfo snapshot = store.getResource(resourcePath, SNAPSHOT_SERIALIZER);
 
         return snapshot;
     }

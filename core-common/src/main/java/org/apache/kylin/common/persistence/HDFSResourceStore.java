@@ -18,11 +18,7 @@
 
 package org.apache.kylin.common.persistence;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.util.Collections;
-import java.util.List;
 import java.util.NavigableSet;
 import java.util.TreeSet;
 
@@ -41,7 +37,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
 
 /**
  * A ResourceStore implementation with HDFS as the storage.
@@ -94,7 +89,16 @@ public class HDFSResourceStore extends ResourceStore {
     }
 
     @Override
-    protected NavigableSet<String> listResourcesImpl(String folderPath, boolean recursive) throws IOException {
+    protected NavigableSet<String> listResourcesImpl(String folderPath) throws IOException {
+        return listResourcesImpl(folderPath, false);
+    }
+
+    @Override
+    protected NavigableSet<String> listResourcesRecursivelyImpl(String folderPath) throws IOException {
+        return listResourcesImpl(folderPath, true);
+    }
+
+    private NavigableSet<String> listResourcesImpl(String folderPath, boolean recursive) throws IOException {
         Path p = getRealHDFSPath(folderPath);
         String prefix = folderPath.endsWith("/") ? folderPath : folderPath + "/";
         if (!fs.exists(p) || !fs.isDirectory(p)) {
@@ -135,31 +139,6 @@ public class HDFSResourceStore extends ResourceStore {
     }
 
     @Override
-    protected List<RawResource> getAllResourcesImpl(String folderPath, long timeStart, long timeEndExclusive)
-            throws IOException {
-        NavigableSet<String> resources = listResources(folderPath);
-        if (resources == null)
-            return Collections.emptyList();
-        List<RawResource> result = Lists.newArrayListWithCapacity(resources.size());
-        try {
-            for (String res : resources) {
-                long ts = getResourceTimestampImpl(res);
-                if (timeStart <= ts && ts < timeEndExclusive) {
-                    RawResource resource = getResourceImpl(res);
-                    if (resource != null) // can be null if is a sub-folder
-                        result.add(resource);
-                }
-            }
-        } catch (IOException ex) {
-            for (RawResource rawResource : result) {
-                IOUtils.closeQuietly(rawResource.inputStream);
-            }
-            throw ex;
-        }
-        return result;
-    }
-
-    @Override
     protected RawResource getResourceImpl(String resPath) throws IOException {
         Path p = getRealHDFSPath(resPath);
         if (fs.exists(p) && fs.isFile(p)) {
@@ -168,7 +147,7 @@ public class HDFSResourceStore extends ResourceStore {
             }
             FSDataInputStream in = getHDFSFileInputStream(fs, p);
             long t = in.readLong();
-            return new RawResource(in, t);
+            return new RawResource(resPath, t, in);
         } else {
             return null;
         }
@@ -190,15 +169,19 @@ public class HDFSResourceStore extends ResourceStore {
     }
 
     @Override
-    protected void putResourceImpl(String resPath, InputStream content, long ts) throws IOException {
-        logger.trace("res path : {}", resPath);
+    protected void putResourceImpl(String resPath, ContentWriter content, long ts) throws IOException {
+        logger.trace("res path : " + resPath);
         Path p = getRealHDFSPath(resPath);
-        logger.trace("put resource : {}", p.toUri());
-        try (FSDataOutputStream out = fs.create(p, true)) {
-            out.writeLong(ts);
-            IOUtils.copy(content, out);
+        logger.trace("put resource : " + p.toUri());
+        FSDataOutputStream out = null;
+        try {
+            out = fs.create(p, true);
+            content.write(out);
+        } catch (Exception e) {
+            throw new IOException("Put resource fail", e);
         } finally {
-            IOUtils.closeQuietly(content);
+            IOUtils.closeQuietly(out);
+            fs.setTimes(p, ts, -1);
         }
     }
 
@@ -218,7 +201,7 @@ public class HDFSResourceStore extends ResourceStore {
                         + ", but found " + realLastModify);
             }
         }
-        putResourceImpl(resPath, new ByteArrayInputStream(content), newTS);
+        putResourceImpl(resPath, ContentWriter.create(content), newTS);
         return newTS;
     }
 
@@ -245,5 +228,45 @@ public class HDFSResourceStore extends ResourceStore {
         if (resourcePath.startsWith("/") && resourcePath.length() > 1)
             resourcePath = resourcePath.substring(1);
         return new Path(this.hdfsMetaPath, resourcePath);
+    }
+
+
+
+    protected void visitFolderImpl(String folderPath, boolean recursive, VisitFilter filter, boolean loadContent,
+                                   Visitor visitor) throws IOException {
+        Path p = getRealHDFSPath(folderPath);
+        if (!fs.exists(p) || !fs.isDirectory(p)) {
+            return;
+        }
+
+        String fsPathPrefix = p.toUri().getPath(); // drop schema
+        String resPathPrefix = folderPath.endsWith("/") ? folderPath : folderPath + "/";
+
+        RemoteIterator<LocatedFileStatus> it = fs.listFiles(p, recursive);
+        while (it.hasNext()) {
+            LocatedFileStatus status = it.next();
+            if (status.isDirectory())
+                continue;
+
+            String path = status.getPath().toUri().getPath(); // drop schema
+            if (!path.startsWith(fsPathPrefix))
+                throw new IllegalStateException("File path " + path + " is supposed to start with " + fsPathPrefix);
+
+            String resPath = resPathPrefix + path.substring(fsPathPrefix.length() + 1);
+
+            if (filter.matches(resPath, status.getModificationTime())) {
+                RawResource raw;
+                if (loadContent)
+                    raw = new RawResource(resPath, status.getModificationTime(), fs.open(status.getPath()));
+                else
+                    raw = new RawResource(resPath, status.getModificationTime());
+
+                try {
+                    visitor.visit(raw);
+                } finally {
+                    raw.close();
+                }
+            }
+        }
     }
 }

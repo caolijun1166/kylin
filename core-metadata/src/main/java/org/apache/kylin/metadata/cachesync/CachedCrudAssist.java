@@ -147,7 +147,7 @@ abstract public class CachedCrudAssist<T extends RootPersistentEntity> {
 
     public T reloadAt(String path) {
         try {
-            T entity = store.getResource(path, entityType, serializer);
+            T entity = store.getResource(path, serializer);
             if (entity == null) {
                 logger.warn("No " + entityType.getSimpleName() + " found at " + path + ", returning null");
                 cache.removeLocal(resourceName(path));

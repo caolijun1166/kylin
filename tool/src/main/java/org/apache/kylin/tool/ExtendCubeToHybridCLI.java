@@ -225,7 +225,7 @@ public class ExtendCubeToHybridCLI {
     private void copyAcl(String origCubeId, String newCubeId, String projectName) throws Exception {
         String projectResPath = ProjectInstance.concatResourcePath(projectName);
         Serializer<ProjectInstance> projectSerializer = new JsonSerializer<ProjectInstance>(ProjectInstance.class);
-        ProjectInstance project = store.getResource(projectResPath, ProjectInstance.class, projectSerializer);
+        ProjectInstance project = store.getResource(projectResPath, projectSerializer);
         String projUUID = project.getUuid();
         Table aclHtable = null;
         try {

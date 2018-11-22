@@ -208,7 +208,7 @@ public class ExecutableDao {
     }
 
     private ExecutablePO readJobResource(String path) throws IOException {
-        return store.getResource(path, ExecutablePO.class, JOB_SERIALIZER);
+        return store.getResource(path, JOB_SERIALIZER);
     }
 
     private long writeJobResource(String path, ExecutablePO job) throws IOException {
@@ -216,7 +216,7 @@ public class ExecutableDao {
     }
 
     private ExecutableOutputPO readJobOutputResource(String path) throws IOException {
-        return store.getResource(path, ExecutableOutputPO.class, JOB_OUTPUT_SERIALIZER);
+        return store.getResource(path, JOB_OUTPUT_SERIALIZER);
     }
 
     private long writeJobOutputResource(String path, ExecutableOutputPO output) throws IOException {
@@ -234,7 +234,8 @@ public class ExecutableDao {
 
     public List<ExecutableOutputPO> getJobOutputs(long timeStart, long timeEndExclusive) throws PersistentException {
         try {
-            return store.getAllResources(ResourceStore.EXECUTE_OUTPUT_RESOURCE_ROOT, timeStart, timeEndExclusive, ExecutableOutputPO.class, JOB_OUTPUT_SERIALIZER);
+            return store.getAllResources(ResourceStore.EXECUTE_OUTPUT_RESOURCE_ROOT, timeStart, timeEndExclusive,
+                    JOB_OUTPUT_SERIALIZER);
         } catch (IOException e) {
             logger.error("error get all Jobs:", e);
             throw new PersistentException(e);
@@ -261,7 +262,8 @@ public class ExecutableDao {
 
     public List<ExecutablePO> getJobs(long timeStart, long timeEndExclusive) throws PersistentException {
         try {
-            return store.getAllResources(ResourceStore.EXECUTE_RESOURCE_ROOT, timeStart, timeEndExclusive, ExecutablePO.class, JOB_SERIALIZER);
+            return store.getAllResources(ResourceStore.EXECUTE_RESOURCE_ROOT, timeStart, timeEndExclusive,
+                    JOB_SERIALIZER);
         } catch (IOException e) {
             logger.error("error get all Jobs:", e);
             throw new PersistentException(e);

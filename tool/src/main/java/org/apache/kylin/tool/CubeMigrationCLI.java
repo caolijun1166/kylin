@@ -433,8 +433,8 @@ public class CubeMigrationCLI extends AbstractApplication {
                 logger.info("Item: {} doesn't exist, ignore it.", item);
                 break;
             }
-            dstStore.putResource(renameTableWithinProject(item), res.inputStream, res.timestamp);
-            res.inputStream.close();
+            dstStore.putResource(renameTableWithinProject(item), res.content(), res.lastModified());
+            res.content().close();
             logger.info("Item " + item + " is copied");
             break;
         }
@@ -461,7 +461,7 @@ public class CubeMigrationCLI extends AbstractApplication {
                     String cubeName = (String) opt.params[1];
                     String cubeResPath = CubeInstance.concatResourcePath(cubeName);
                     Serializer<CubeInstance> cubeSerializer = new JsonSerializer<CubeInstance>(CubeInstance.class);
-                    CubeInstance cube = dstStore.getResource(cubeResPath, CubeInstance.class, cubeSerializer);
+                    CubeInstance cube = dstStore.getResource(cubeResPath, cubeSerializer);
                     for (CubeSegment segment : cube.getSegments()) {
                         for (Map.Entry<String, String> entry : segment.getDictionaries().entrySet()) {
                             if (entry.getValue().equalsIgnoreCase(item)) {
@@ -491,7 +491,7 @@ public class CubeMigrationCLI extends AbstractApplication {
                     String cubeName = (String) opt.params[1];
                     String cubeResPath = CubeInstance.concatResourcePath(cubeName);
                     Serializer<CubeInstance> cubeSerializer = new JsonSerializer<CubeInstance>(CubeInstance.class);
-                    CubeInstance cube = dstStore.getResource(cubeResPath, CubeInstance.class, cubeSerializer);
+                    CubeInstance cube = dstStore.getResource(cubeResPath, cubeSerializer);
                     for (CubeSegment segment : cube.getSegments()) {
                         for (Map.Entry<String, String> entry : segment.getSnapshots().entrySet()) {
                             if (entry.getValue().equalsIgnoreCase(item)) {
@@ -526,7 +526,7 @@ public class CubeMigrationCLI extends AbstractApplication {
 
             String projectResPath = ProjectInstance.concatResourcePath(projectName);
             Serializer<ProjectInstance> projectSerializer = new JsonSerializer<ProjectInstance>(ProjectInstance.class);
-            ProjectInstance project = dstStore.getResource(projectResPath, ProjectInstance.class, projectSerializer);
+            ProjectInstance project = dstStore.getResource(projectResPath, projectSerializer);
 
             for (TableRef tableRef : srcCube.getModel().getAllTables()) {
                 project.addTable(tableRef.getTableIdentity());
@@ -545,8 +545,7 @@ public class CubeMigrationCLI extends AbstractApplication {
             String cubeName = (String) opt.params[0];
             String cubeInstancePath = CubeInstance.concatResourcePath(cubeName);
             Serializer<CubeInstance> cubeInstanceSerializer = new JsonSerializer<CubeInstance>(CubeInstance.class);
-            CubeInstance cubeInstance = dstStore.getResource(cubeInstancePath, CubeInstance.class,
-                    cubeInstanceSerializer);
+            CubeInstance cubeInstance = dstStore.getResource(cubeInstancePath, cubeInstanceSerializer);
             cubeInstance.getSegments().clear();
             cubeInstance.clearCuboids();
             cubeInstance.setCreateTimeUTC(System.currentTimeMillis());
@@ -559,7 +558,7 @@ public class CubeMigrationCLI extends AbstractApplication {
             String cubeName = (String) opt.params[0];
             String cubeResPath = CubeInstance.concatResourcePath(cubeName);
             Serializer<CubeInstance> cubeSerializer = new JsonSerializer<CubeInstance>(CubeInstance.class);
-            CubeInstance cube = srcStore.getResource(cubeResPath, CubeInstance.class, cubeSerializer);
+            CubeInstance cube = srcStore.getResource(cubeResPath, cubeSerializer);
             cube.getSegments().clear();
             cube.setStatus(RealizationStatusEnum.DISABLED);
             srcStore.putResource(cubeResPath, cube, cubeSerializer);

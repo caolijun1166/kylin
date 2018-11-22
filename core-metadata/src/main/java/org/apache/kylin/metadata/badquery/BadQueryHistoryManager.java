@@ -57,7 +57,7 @@ public class BadQueryHistoryManager {
     }
 
     public BadQueryHistory getBadQueriesForProject(String project) throws IOException {
-        BadQueryHistory badQueryHistory = getStore().getResource(getResourcePathForProject(project), BadQueryHistory.class, BAD_QUERY_INSTANCE_SERIALIZER);
+        BadQueryHistory badQueryHistory = getStore().getResource(getResourcePathForProject(project), BAD_QUERY_INSTANCE_SERIALIZER);
         if (badQueryHistory == null) {
             badQueryHistory = new BadQueryHistory(project);
         }

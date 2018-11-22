@@ -188,7 +188,7 @@ public class JobDiagnosisInfoCLI extends AbstractInfoExtractor {
         try {
             KylinConfig srcConfig = KylinConfig.getInstanceFromEnv();
             KylinConfig dstConfig = KylinConfig.createInstanceFromUri(destDir.getAbsolutePath());
-            ResourceTool.copy(srcConfig, dstConfig, requiredResources);
+            new ResourceTool().copy(srcConfig, dstConfig, requiredResources);
         } catch (Exception e) {
             throw new RuntimeException("Failed to extract job resources. ", e);
         }

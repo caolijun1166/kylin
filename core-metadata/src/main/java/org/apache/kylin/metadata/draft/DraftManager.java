@@ -72,7 +72,7 @@ public class DraftManager {
             return result;
         
         for (String path : listPath) {
-            Draft draft = store.getResource(path, Draft.class, DRAFT_SERIALIZER);
+            Draft draft = store.getResource(path, DRAFT_SERIALIZER);
             
             if (draft == null)
                 continue;
@@ -109,7 +109,7 @@ public class DraftManager {
 
     public Draft load(String uuid) throws IOException {
         ResourceStore store = getStore();
-        Draft draft = store.getResource(Draft.concatResourcePath(uuid), Draft.class, DRAFT_SERIALIZER);
+        Draft draft = store.getResource(Draft.concatResourcePath(uuid), DRAFT_SERIALIZER);
         return draft;
     }
 

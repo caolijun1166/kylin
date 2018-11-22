@@ -266,11 +266,11 @@ public class CubeMetaExtractor extends AbstractInfoExtractor {
             KylinConfig srcConfig = KylinConfig.getInstanceFromEnv();
             KylinConfig dstConfig = KylinConfig.createInstanceFromUri(dest);
 
-            ResourceTool.copy(srcConfig, dstConfig, Lists.newArrayList(requiredResources), true);
+            new ResourceTool().copy(srcConfig, dstConfig, Lists.newArrayList(requiredResources), true);
 
             for (String r : optionalResources) {
                 try {
-                    ResourceTool.copy(srcConfig, dstConfig, Lists.newArrayList(r), true);
+                    new ResourceTool().copy(srcConfig, dstConfig, Lists.newArrayList(r), true);
                 } catch (Exception e) {
                     logger.warn(
                             "Exception when copying optional resource {}. May be caused by resource missing. skip it.",

@@ -24,12 +24,14 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Locale;
 import java.util.NavigableSet;
 import java.util.Set;
 import java.util.TreeSet;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.kylin.common.KylinConfig;
+import org.apache.kylin.common.persistence.ResourceParallelCopier.Stats;
 import org.apache.kylin.common.util.StringUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -81,14 +83,15 @@ public class ResourceTool {
             tool.list(KylinConfig.getInstanceFromEnv(), args[1]);
             break;
         case "download":
-            tool.copy(KylinConfig.getInstanceFromEnv(), KylinConfig.createInstanceFromUri(args[1]), true);
+            tool.copyParallel(KylinConfig.getInstanceFromEnv(), KylinConfig.createInstanceFromUri(args[1]), "/");
             System.out.println("Metadata backed up to " + args[1]);
             break;
         case "fetch":
             tool.copy(KylinConfig.getInstanceFromEnv(), KylinConfig.createInstanceFromUri(args[1]), args[2], true);
             break;
         case "upload":
-            tool.copy(KylinConfig.createInstanceFromUri(args[1]), KylinConfig.getInstanceFromEnv());
+            tool.copyParallel(KylinConfig.createInstanceFromUri(args[1]), KylinConfig.getInstanceFromEnv(), "/");
+            System.out.println("Metadata restored from " + args[1]);
             break;
         case "remove":
             tool.remove(KylinConfig.getInstanceFromEnv(), args[1]);
@@ -103,6 +106,7 @@ public class ResourceTool {
 
     private static String[] includes = null;
     private static String[] excludes = null;
+    private int parallelCopyGroupSize = 0;
 
     public void addIncludes(String[] arg) {
         if (arg != null) {
@@ -130,9 +134,52 @@ public class ResourceTool {
         }
     }
 
+    private void copyParallel(KylinConfig src, KylinConfig dst, String folder) throws IOException {
+        ResourceParallelCopier copier = new ResourceParallelCopier(ResourceStore.getStore(src), ResourceStore.getStore(dst));
+        if (parallelCopyGroupSize > 0)
+            copier.setGroupSize(parallelCopyGroupSize);
+
+        Stats stats = copier.copy(folder, includes, excludes, new Stats() {
+
+            @Override
+            void heartBeat() {
+                //计算百分进度
+                double percent = 100D * (successGroups.size() + errorGroups.size()) / allGroups.size();
+                //计算数据大小
+                double mb = totalBytes.get() / 1024D / 1024D;
+                //计算耗时
+                double sec = (System.nanoTime() - startTime) / 1000000000D;
+                //计算传输速度
+                double kbps = totalBytes.get() / 1024D / sec;
+                String status = mb > 0 && kbps < 500 ? "-- Slow network or storage?" : "";
+                //将相关指标格式化成progress bar
+                String logInfo = String.format(Locale.ROOT,
+                        "Progress: %2.1f%%, %d resource, %d error; copied %.1f MB in %.1f min, %.1f KB/s %s", percent,
+                        totalResource.get(), errorResource.get(), mb, sec / 60, kbps, status);
+                //输出至screen
+                System.out.println(logInfo);
+            }
+
+            @Override
+            //重试
+            void onRetry(int errorResourceCnt) {
+                System.out.println("-----");
+                System.out.println("RETRY " + errorResourceCnt + " error resource ...");
+            }
+        });
+
+        if (stats.hasError()) {
+            for (String errGroup : stats.errorGroups)
+                System.out.println("Failed to copy resource group: " + errGroup + "*");
+            for (String errResPath : stats.errorResourcePaths)
+                System.out.println("Failed to copy resource: " + errResPath);
+            throw new IOException("Failed to copy " + stats.errorResource.get() + " resource");
+        }
+    }
+
     public String cat(KylinConfig config, String path) throws IOException {
         ResourceStore store = ResourceStore.getStore(config);
-        InputStream is = store.getResource(path).inputStream;
+        InputStream is = store.getResource(path).content();
         BufferedReader br = null;
         StringBuffer sb = new StringBuffer();
         String line;
@@ -213,14 +260,14 @@ public class ResourceTool {
 
         if (children == null) {
             // case of resource (not a folder)
-            if (matchFilter(path)) {
+            if (matchFilter(path, includes, excludes)) {
                 try {
                     RawResource res = src.getResource(path);
                     if (res != null) {
                         try {
-                            dst.putResource(path, res.inputStream, res.timestamp);
+                            dst.putResource(path, res.content(), res.lastModified());
                         } finally {
-                            IOUtils.closeQuietly(res.inputStream);
+                            IOUtils.closeQuietly(res.content());
                         }
                     } else {
                         System.out.println("Resource not exist for " + path);
@@ -251,17 +298,17 @@ public class ResourceTool {
         return pathsSkipChildrenCheck;
     }
 
-    private static boolean matchFilter(String path) {
-        if (includes != null) {
+    static boolean matchFilter(String path, String[] includePrefix, String[] excludePrefix) {
+        if (includePrefix != null) {
             boolean in = false;
-            for (String include : includes) {
+            for (String include : includePrefix) {
                 in = in || path.startsWith(include);
             }
             if (!in)
                 return false;
         }
-        if (excludes != null) {
-            for (String exclude : excludes) {
+        if (excludePrefix != null) {
+            for (String exclude : excludePrefix) {
                 if (path.startsWith(exclude))
                     return false;
             }
@@ -277,7 +324,7 @@ public class ResourceTool {
     public void resetR(ResourceStore store, String path) throws IOException {
         NavigableSet<String> children = store.listResources(path);
         if (children == null) { // path is a resource (not a folder)
-            if (matchFilter(path)) {
+            if (matchFilter(path, includes, excludes)) {
                 store.deleteResource(path);
             }
         } else {

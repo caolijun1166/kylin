@@ -78,7 +78,7 @@ public class ResourceStoreTest {
         List<StringEntity> result;
 
         // reset any leftover garbage
-        ResourceTool.resetR(store, folder);
+        new ResourceTool().resetR(store, folder);
 
         store.putResource(folder + "/res1", new StringEntity("data1"), 1000, StringEntity.serializer);
         store.putResource(folder + "/res2", new StringEntity("data2"), 2000, StringEntity.serializer);
@@ -91,11 +91,11 @@ public class ResourceStoreTest {
         assertEntity(result.get(2), "data4", 4000);
         assertEquals(3, result.size());
 
-        result = store.getAllResources(folder, 2000, 4000, StringEntity.class, StringEntity.serializer);
+        result = store.getAllResources(folder, 2000, 4000, StringEntity.serializer);
         assertEntity(result.get(0), "data2", 2000);
         assertEquals(1, result.size());
 
-        ResourceTool.resetR(store, folder);
+        new ResourceTool().resetR(store, folder);
     }
 
     private static void assertEntity(StringEntity entity, String data, int ts) {
@@ -120,12 +120,12 @@ public class ResourceStoreTest {
         // put/get
         store.putResource(path1, content1, StringEntity.serializer);
         assertTrue(store.exists(path1));
-        t = store.getResource(path1, StringEntity.class, StringEntity.serializer);
+        t = store.getResource(path1, StringEntity.serializer);
         assertEquals(content1, t);
 
         store.putResource(path2, content2, StringEntity.serializer);
         assertTrue(store.exists(path2));
-        t = store.getResource(path2, StringEntity.class, StringEntity.serializer);
+        t = store.getResource(path2, StringEntity.serializer);
         assertEquals(content2, t);
 
         // overwrite
@@ -192,7 +192,7 @@ public class ResourceStoreTest {
         int step = 0; //avoid compiler optimization
         for (int i = 0; i < TEST_RESOURCE_COUNT; i++) {
             String resourcePath = PERFORMANCE_TEST_ROOT_PATH + "/res_" + i;
-            StringEntity t = store.getResource(resourcePath, StringEntity.class, StringEntity.serializer);
+            StringEntity t = store.getResource(resourcePath, StringEntity.serializer);
             step |= t.toString().length();
         }
         logger.info("step : " + step);

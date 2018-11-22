@@ -73,7 +73,7 @@ public class ITHBaseResourceStoreTest extends HBaseMetadataTestCase {
 
             store.putResource(path, content, StringEntity.serializer);
             assertTrue(store.exists(path));
-            StringEntity t = store.getResource(path, StringEntity.class, StringEntity.serializer);
+            StringEntity t = store.getResource(path, StringEntity.serializer);
             assertEquals(content, t);
 
             Path redirectPath = ((HBaseResourceStore) store).bigCellHDFSPath(path);

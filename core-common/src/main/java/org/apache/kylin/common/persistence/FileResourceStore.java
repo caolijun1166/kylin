@@ -18,17 +18,12 @@
 
 package org.apache.kylin.common.persistence;
 
-import java.io.ByteArrayInputStream;
+import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.NavigableSet;
-import java.util.TreeSet;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
@@ -36,14 +31,16 @@ import org.apache.kylin.common.KylinConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
 
 public class FileResourceStore extends ResourceStore {
 
     private static final Logger logger = LoggerFactory.getLogger(FileResourceStore.class);
 
     File root;
+
+    // backdoor for test
+    int failPutResourceCountDown = Integer.MAX_VALUE;
+    int failVisitFolderCountDown = Integer.MAX_VALUE;
 
     public FileResourceStore(KylinConfig kylinConfig) {
         super(kylinConfig);
@@ -58,29 +55,36 @@ public class FileResourceStore extends ResourceStore {
     }
 
     @Override
-    protected NavigableSet<String> listResourcesImpl(String folderPath, boolean recursive) throws IOException {
-        synchronized (FileResourceStore.class) {
-            TreeSet<String> r = new TreeSet<>();
-            File file = file(folderPath);
-            String[] names = file.list();
-            // not a directory
-            if (names == null)
-                return null;
-            String prefix = folderPath.endsWith("/") ? folderPath : folderPath + "/";
-            if (recursive) {
-                Collection<File> files = FileUtils.listFiles(file, null, true);
-                for (File f : files) {
-                    String path = f.getAbsolutePath();
-                    String[] split = path.split(prefix);
-                    Preconditions.checkArgument(split.length == 2);
-                    r.add(prefix + split[1]);
-                }
-            } else {
-                for (String n : names) {
-                    r.add(prefix + n);
+    protected void visitFolderImpl(String folderPath, boolean recursive, VisitFilter filter, boolean loadContent,
+                                   Visitor visitor) throws IOException {
+        if (--failVisitFolderCountDown == 0)
+            throw new IOException("for test");
+
+        File file = file(folderPath);
+        if (!file.exists() || !file.isDirectory())
+            return;
+
+        String prefix = fixWinPath(file);
+        Collection<File> files = FileUtils.listFiles(file, null, recursive);
+
+        for (File f : files) {
+
+            String path = fixWinPath(f);
+            if (!path.startsWith(prefix))
+                throw new IllegalStateException("File path " + path + " is supposed to start with " + prefix);
+
+            String resPath = folderPath.equals("/") ? path.substring(prefix.length())
+                    : folderPath + path.substring(prefix.length());
+
+            if (filter.matches(resPath, f.lastModified())) {
+                RawResource raw = loadContent ? new RawResource(resPath, f.lastModified(), new FileInputStream(f))
+                        : new RawResource(resPath, f.lastModified());
+                try {
+                    visitor.visit(raw);
+                } finally {
+                    raw.close();
                 }
             }
-            return r;
         }
     }
 
@@ -92,33 +96,12 @@ public class FileResourceStore extends ResourceStore {
         }
     }
 
-    @Override
-    protected List<RawResource> getAllResourcesImpl(String folderPath, long timeStart, long timeEndExclusive)
-            throws IOException {
-        synchronized (FileResourceStore.class) {
-
-            NavigableSet<String> resources = listResources(folderPath);
-            if (resources == null)
-                return Collections.emptyList();
-
-            List<RawResource> result = Lists.newArrayListWithCapacity(resources.size());
-            try {
-                for (String res : resources) {
-                    long ts = getResourceTimestampImpl(res);
-                    if (timeStart <= ts && ts < timeEndExclusive) {
-                        RawResource resource = getResourceImpl(res);
-                        if (resource != null) // can be null if is a sub-folder
-                            result.add(resource);
-                    }
-                }
-            } catch (IOException ex) {
-                for (RawResource rawResource : result) {
-                    IOUtils.closeQuietly(rawResource.inputStream);
-                }
-                throw ex;
-            }
-            return result;
-        }
+    private String fixWinPath(File file) {
+        // fix path on windows
+        String path = file.getAbsolutePath();
+        if (path.length() > 2 && path.charAt(1) == ':' && path.charAt(2) == '\\')
+            path = path.replace('\\', '/');
+        return path;
     }
 
     @Override
@@ -131,7 +114,7 @@ public class FileResourceStore extends ResourceStore {
                     logger.warn("Zero length file: " + f.getAbsolutePath());
                 }
                 FileInputStream resource = new FileInputStream(f);
-                return new RawResource(resource, f.lastModified());
+                return new RawResource(resPath, f.lastModified(), resource);
             } else {
                 return null;
             }
@@ -151,20 +134,47 @@ public class FileResourceStore extends ResourceStore {
     }
 
     @Override
-    protected void putResourceImpl(String resPath, InputStream content, long ts) throws IOException {
-        synchronized (FileResourceStore.class) {
+    protected void putResourceImpl(String resPath, ContentWriter content, long ts) throws IOException {
+
+        // backdoor for test
+        if (--failPutResourceCountDown == 0)
+            throw new IOException("for test");
+
+        // write a temp file then move to the target, in order to avoid partial written content
+        File tmp = File.createTempFile("kylin-fileresource-", ".tmp");
+        try {
+            FileOutputStream out = new FileOutputStream(tmp);
+            DataOutputStream dout = new DataOutputStream(out);
+            try {
+                content.write(dout);
+                dout.flush();
+            } finally {
+                IOUtils.closeQuietly(dout);
+                IOUtils.closeQuietly(out);
+            }
 
             File f = file(resPath);
             f.getParentFile().mkdirs();
-            FileOutputStream out = new FileOutputStream(f);
-            try {
-                IOUtils.copy(content, out);
-            } finally {
-                IOUtils.closeQuietly(out);
-                IOUtils.closeQuietly(content);
+
+            if (!tmp.renameTo(f)) {
+                f.delete();
+                for (int i = 0; f.exists() && i < 3; i++) {
+                    try {
+                        Thread.sleep(10);
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException(e);
+                    }
+                    f.delete();
+                }
+
+                FileUtils.moveFile(tmp, f);
             }
 
             f.setLastModified(ts);
+
+        } finally {
+            if (tmp.exists())
+                FileUtils.forceDelete(tmp);
         }
     }
 
@@ -178,7 +188,7 @@ public class FileResourceStore extends ResourceStore {
                 throw new WriteConflictException("Overwriting conflict " + resPath + ", expect old TS " + oldTS
                         + ", but found " + f.lastModified());
 
-            putResourceImpl(resPath, new ByteArrayInputStream(content), newTS);
+            putResourceImpl(resPath, ContentWriter.create(content), newTS);
 
             // some FS lose precision on given time stamp
             return f.lastModified();

@@ -241,7 +241,7 @@ public class QueryService extends BasicService {
         queries.add(query);
         Query[] queryArray = new Query[queries.size()];
         QueryRecord record = new QueryRecord(queries.toArray(queryArray));
-        queryStore.putResourceWithoutCheck(getQueryKeyById(creator), record, System.currentTimeMillis(),
+        queryStore.putResource(getQueryKeyById(creator), record, System.currentTimeMillis(),
                 QueryRecordSerializer.getInstance());
         return;
     }
@@ -265,7 +265,7 @@ public class QueryService extends BasicService {
         }
         Query[] queryArray = new Query[queries.size()];
         QueryRecord record = new QueryRecord(queries.toArray(queryArray));
-        queryStore.putResourceWithoutCheck(getQueryKeyById(creator), record, System.currentTimeMillis(),
+        queryStore.putResource(getQueryKeyById(creator), record, System.currentTimeMillis(),
                 QueryRecordSerializer.getInstance());
         return;
     }
@@ -279,8 +279,7 @@ public class QueryService extends BasicService {
             return null;
         }
         List<Query> queries = new ArrayList<>();
-        QueryRecord record = queryStore.getResource(getQueryKeyById(creator), QueryRecord.class,
-                QueryRecordSerializer.getInstance());
+        QueryRecord record = queryStore.getResource(getQueryKeyById(creator), QueryRecordSerializer.getInstance());
         if (record != null) {
             for (Query query : record.getQueries()) {
                 if (project == null || query.getProject().equals(project))

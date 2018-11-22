@@ -240,27 +240,6 @@ public class JDBCResourceDAO {
 
     }
 
-    public void deleteResource(final String resourcePath) throws SQLException {
-        if (isRootPath(resourcePath)) {
-            for (int i = 0; i < tableNames.length; i++) {
-                final String tableName = tableNames[i];
-                deleteResourceFromTable(tableName, resourcePath);
-            }
-        } else {
-            String tableName = getMetaTableName(resourcePath);
-            deleteResourceFromTable(tableName, resourcePath);
-        }
-
-        boolean skipHdfs = isJsonMetadata(resourcePath);
-        if (!skipHdfs) {
-            try {
-                deleteHDFSResourceIfExist(resourcePath);
-            } catch (Throwable e) {
-                throw new SQLException(e);
-            }
-        }
-    }
-
     private void deleteResourceFromTable(final String tableName, final String resourcePath) throws SQLException {
         executeSql(new SqlOperation() {
             @Override
