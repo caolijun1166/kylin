@@ -43,6 +43,7 @@ public class ExponentialBackoffRetry {
         this.retryCount = 0;
     }
 
+    //执行某个操作，失败会重试，具体操作放在线程里
     public <V> V doWithRetry(Callable<V> callable) throws IOException {
         V result = null;
         boolean done = false;
@@ -75,6 +76,7 @@ public class ExponentialBackoffRetry {
         throw new IOException(ex);
     }
 
+    //判断失败的操作是否需要重试
     private boolean checkIfAllowRetry(Throwable ex) {
         if (config.isResourceStoreReconnectEnabled() && store.isUnreachableException(ex)) {
             if (isTimeOut(config.getResourceStoreReconnectTimeoutMs())) {

@@ -43,11 +43,16 @@ public class ResourceParallelCopier {
     final private ResourceStore src;
     final private ResourceStore dst;
 
+    //5个工作线程
     private int threadCount = 5;
+    //200条记录为一组
     private int groupSize = 200;
+    //20s心跳时间
     private int heartBeatSec = 20;
+    //重试2次
     private int retry = 2;
 
+    //新建该类对象，初始化了Src ResourceStore和Dst ResourceStore
     public ResourceParallelCopier(ResourceStore src, ResourceStore dst) {
         this.src = src;
         this.dst = dst;
@@ -73,9 +78,11 @@ public class ResourceParallelCopier {
         return copy(folder, includes, excludes, new Stats());
     }
 
+    //从Src ResourceStore元数据复制至Dst ResourceStore
     public Stats copy(String folder, String[] includes, String[] excludes, Stats stats) throws IOException {
         logger.info("Copy {} from {} to {}", folder, src, dst);
 
+        //计算一共要复制几组
         TreeMap<String, Integer> groups = calculateGroupsToCopy(folder, includes, excludes);
         if (groups == null || groups.isEmpty())
             return stats;
@@ -96,7 +103,7 @@ public class ResourceParallelCopier {
     private void copyGroups(TreeMap<String, Integer> groups, String[] includes, String[] excludes, Stats stats) {
         stats.onAllStart(groups);
 
-        // parallel copy all groups
+        // 并行复制所有组 parallel copy all groups
         ExecutorService exec = Executors.newFixedThreadPool(threadCount);
         try {
             doCopyParallel(exec, groups, includes, excludes, stats);
@@ -117,8 +124,10 @@ public class ResourceParallelCopier {
         stats.onAllDone();
     }
 
+    //计算一共要复制几组
     private TreeMap<String, Integer> calculateGroupsToCopy(String folder, String[] includes, String[] excludes)
             throws IOException {
+        //循环列出"/"下的Resources，并放入String Set中
         NavigableSet<String> all = src.listResourcesRecursively(folder);
         if (all == null || all.isEmpty())
             return null;

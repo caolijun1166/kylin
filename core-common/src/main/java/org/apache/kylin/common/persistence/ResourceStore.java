@@ -157,8 +157,12 @@ abstract public class ResourceStore {
         return listResourcesRecursivelyImpl(norm(folderPath));
     }
 
-    // sub-class may choose to override
+    /*
+     *sub-class may choose to override
+     * listResourcesRecursively具体实现
+     */
     protected NavigableSet<String> listResourcesRecursivelyImpl(String folderPath) throws IOException {
+        //循环收集指定目录下的资源
         List<String> list = collectResourceRecursively(folderPath, null);
         if (list.isEmpty())
             return null;
@@ -556,16 +560,20 @@ abstract public class ResourceStore {
 
     /**
      * Collect resources recursively under a folder, return empty list if folder does not exist
+     * 循环收集指定目录下的资源
      */
-    final public List<String> collectResourceRecursively(final String root, final String suffix) throws IOException {
+    public List<String> collectResourceRecursively(final String root, final String suffix) throws IOException {
+        //失败重试
         return new ExponentialBackoffRetry(this).doWithRetry(new Callable<List<String>>() {
             @Override
             public List<String> call() throws Exception {
                 final ArrayList<String> collector = Lists.newArrayList();
+                //循环遍历目录下的资源
                 visitFolder(root, true, new Visitor() {
                     @Override
                     public void visit(RawResource resource) {
                         String path = resource.path();
+                        //当目录后缀为空时，形如/user,将路径添加至collector中
                         if (suffix == null || path.endsWith(suffix))
                             collector.add(path);
                     }

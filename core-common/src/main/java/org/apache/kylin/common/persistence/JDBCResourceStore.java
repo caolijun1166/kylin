@@ -29,6 +29,10 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.text.FieldPosition;
+import java.text.MessageFormat;
+import java.util.Locale;
+import java.util.NavigableSet;
 import java.util.zip.DataFormatException;
 
 import org.apache.kylin.common.KylinConfig;
@@ -456,13 +460,14 @@ public class JDBCResourceStore extends PushdownResourceStore {
                         Preconditions.checkArgument(filter.pathPrefix.startsWith(folderPrefix));
                         lookForPrefix = filter.pathPrefix;
                     }
-                        JDBCResourceSQL sqls = getJDBCResourceSQL(getMetaTableName(folderPath));
+
+                        JDBCResourceSQL sqls = getJDBCResourceSQL("kylin_bot_idea");
                         String sql = sqls.getAllResourceSqlString(loadContent);
                         pstat = connection.prepareStatement(sql);
-                        pstat.setLong(1, filter.lastModStart);
-                        pstat.setLong(2, filter.lastModEndExclusive);
+                        pstat.setLong(2, filter.lastModStart);
+                        pstat.setLong(3, filter.lastModEndExclusive);
                         // '_' is LIKE wild char, need escape
-                        pstat.setString(3, lookForPrefix.replace("_", "#_") + "%");
+                        pstat.setString(1, lookForPrefix.replace("_", "#_") + "%");
                         rs = pstat.executeQuery();
                         while (rs.next()) {
                             String resPath = rs.getString(META_TABLE_KEY);
@@ -579,6 +584,7 @@ public class JDBCResourceStore extends PushdownResourceStore {
         return new JDBCResourceSQL(kylinConfig.getMetadataDialect(), metaTableName, META_TABLE_KEY, META_TABLE_TS,
                 META_TABLE_CONTENT);
     }
+
 
     public boolean isRootPath(String path) {
         return "/".equals(path);
