@@ -29,10 +29,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
-import java.text.FieldPosition;
-import java.text.MessageFormat;
-import java.util.Locale;
-import java.util.NavigableSet;
 import java.util.zip.DataFormatException;
 
 import org.apache.kylin.common.KylinConfig;
@@ -461,13 +457,13 @@ public class JDBCResourceStore extends PushdownResourceStore {
                         lookForPrefix = filter.pathPrefix;
                     }
 
-                        JDBCResourceSQL sqls = getJDBCResourceSQL("kylin_bot_idea");
+                        JDBCResourceSQL sqls = getJDBCResourceSQL(getMetaTableName(folderPath));
                         String sql = sqls.getAllResourceSqlString(loadContent);
                         pstat = connection.prepareStatement(sql);
-                        pstat.setLong(2, filter.lastModStart);
-                        pstat.setLong(3, filter.lastModEndExclusive);
                         // '_' is LIKE wild char, need escape
                         pstat.setString(1, lookForPrefix.replace("_", "#_") + "%");
+                        pstat.setLong(2, filter.lastModStart);
+                        pstat.setLong(3, filter.lastModEndExclusive);
                         rs = pstat.executeQuery();
                         while (rs.next()) {
                             String resPath = rs.getString(META_TABLE_KEY);

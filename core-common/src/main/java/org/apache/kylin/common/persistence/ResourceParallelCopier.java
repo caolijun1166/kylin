@@ -124,7 +124,7 @@ public class ResourceParallelCopier {
         stats.onAllDone();
     }
 
-    //计算一共要复制几组
+    //按照homepath分组，以sample数据为例，/acl为一组，size为3，/table为一组，size为6
     private TreeMap<String, Integer> calculateGroupsToCopy(String folder, String[] includes, String[] excludes)
             throws IOException {
         //循环列出"/"下的Resources，并放入String Set中
