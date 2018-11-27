@@ -456,7 +456,35 @@ public class JDBCResourceStore extends PushdownResourceStore {
                         Preconditions.checkArgument(filter.pathPrefix.startsWith(folderPrefix));
                         lookForPrefix = filter.pathPrefix;
                     }
+                    if (isRootPath(folderPath)){
+                        for (int i=0; i<tableNames.length; i++){
+                            final String tableName = tableNames[i];
+                            JDBCResourceSQL sqls = getJDBCResourceSQL(tableName);
+                            String sql = sqls.getAllResourceSqlString(loadContent);
+                            pstat = connection.prepareStatement(sql);
+                            // '_' is LIKE wild char, need escape
+                            pstat.setString(1, lookForPrefix.replace("_", "#_") + "%");
+                            pstat.setLong(2, filter.lastModStart);
+                            pstat.setLong(3, filter.lastModEndExclusive);
+                            rs = pstat.executeQuery();
+                            while (rs.next()) {
+                                String resPath = rs.getString(META_TABLE_KEY);
+                                if (resPath.equals(folderPath))
+                                    continue; // the folder itself exists as a resource? ignore..
 
+                                if (recursive || isDirectChild(folderPrefix, resPath)) {
+                                    RawResource raw = rawResource(rs, loadContent, true);
+                                    try {
+                                        visitor.visit(raw);
+                                    } catch (IOException e) {
+                                        throw new RuntimeException(e);
+                                    } finally {
+                                        raw.close();
+                                    }
+                                }
+                            }
+                        }
+                    }else{
                         JDBCResourceSQL sqls = getJDBCResourceSQL(getMetaTableName(folderPath));
                         String sql = sqls.getAllResourceSqlString(loadContent);
                         pstat = connection.prepareStatement(sql);
@@ -481,6 +509,7 @@ public class JDBCResourceStore extends PushdownResourceStore {
                                 }
                             }
                         }
+                    }
                 }
             });
         } catch (SQLException e) {
