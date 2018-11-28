@@ -24,7 +24,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.ConnectException;
 import java.net.SocketTimeoutException;
-import java.nio.charset.Charset;
 import java.sql.Blob;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -33,13 +32,10 @@ import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.zip.DataFormatException;
 
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.kylin.common.KylinConfig;
 import org.apache.kylin.common.StorageURL;
-import org.apache.kylin.common.util.BytesUtil;
-import org.apache.kylin.common.util.CompressionUtils;
 import org.apache.kylin.common.util.DBUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,8 +53,6 @@ public class JDBCResourceStore extends PushdownResourceStore {
     private static final String META_TABLE_TS = "META_TABLE_TS";
 
     private static final String META_TABLE_CONTENT = "META_TABLE_CONTENT";
-
-    private static final byte[] GZIP = "GZIP".getBytes(Charset.forName("UTF-8"));
 
     public static void checkScheme(StorageURL url) {
         Preconditions.checkState(JDBC_SCHEME.equals(url.getScheme()));
@@ -310,16 +304,13 @@ public class JDBCResourceStore extends PushdownResourceStore {
                 return new RawResource(path, ts, e); // let the caller handle broken content
             } catch (SQLException e) {
                 return new RawResource(path, ts, new IOException(e)); // let the caller handle broken content
-            } catch (DataFormatException e) {
-                return new RawResource(path, ts, new IOException(e)); // let the caller handle broken content
             }
         } else {
             return new RawResource(path, ts);
         }
     }
 
-    private InputStream getInputStream(String resPath, ResultSet rs)
-            throws SQLException, IOException, DataFormatException {
+    private InputStream getInputStream(String resPath, ResultSet rs) throws SQLException, IOException {
         if (rs == null) {
             return null;
         }
@@ -329,38 +320,8 @@ public class JDBCResourceStore extends PushdownResourceStore {
         if (blob == null || blob.length() == 0) {
             return openPushdown(resPath); // empty bytes is pushdown indicator
         } else {
-            byte[] bytes = blob.getBytes(1, (int) blob.length());
-            byte[] dewrappedContent = dewrapContent(bytes);
-            return new ByteArrayInputStream(dewrappedContent);
+            return blob.getBinaryStream();
         }
-    }
-
-    private byte[] wrapContent(byte[] content) throws IOException {
-        if (content == null || content.length == 0) {
-            return content;
-        }
-        byte[] compressedContent = CompressionUtils.compress(content);
-        byte[] wrappedContent = BytesUtil.mergeBytes(GZIP, compressedContent);
-        return wrappedContent;
-    }
-
-    private byte[] dewrapContent(byte[] bytes) throws IOException, DataFormatException {
-        Boolean isWrapped = false;
-        if (bytes.length > GZIP.length) {
-            isWrapped = true;
-            for (int i = 0; i < GZIP.length; i++) {
-                if (bytes[i] != GZIP[i]) {
-                    isWrapped = false;
-                    break;
-                }
-            }
-        }
-        if (isWrapped) {
-            byte[] compressedContent = BytesUtil.subarray(bytes, GZIP.length, bytes.length);
-            byte[] unwrappedContent = CompressionUtils.decompress(compressedContent);
-            return unwrappedContent;
-        }
-        return bytes;
     }
 
     @Override
@@ -388,23 +349,22 @@ public class JDBCResourceStore extends PushdownResourceStore {
             @Override
             public void execute(Connection connection) throws SQLException, IOException {
                 byte[] bytes = content.extractAllBytes();
-                byte[] wrappedContent = wrapContent(bytes);
                 synchronized (resPath.intern()) {
                     JDBCResourceSQL sqls = getJDBCResourceSQL(getMetaTableName(resPath));
                     boolean existing = existsImpl(resPath);
                     if (existing) {
                         pstat = connection.prepareStatement(sqls.getReplaceSql());
                         pstat.setLong(1, ts);
-                        pstat.setBlob(2, new BufferedInputStream(new ByteArrayInputStream(wrappedContent)));
+                        pstat.setBlob(2, new BufferedInputStream(new ByteArrayInputStream(bytes)));
                         pstat.setString(3, resPath);
                     } else {
                         pstat = connection.prepareStatement(sqls.getInsertSql());
                         pstat.setString(1, resPath);
                         pstat.setLong(2, ts);
-                        pstat.setBlob(3, new BufferedInputStream(new ByteArrayInputStream(wrappedContent)));
+                        pstat.setBlob(3, new BufferedInputStream(new ByteArrayInputStream(bytes)));
                     }
 
-                    if (isContentOverflow(wrappedContent, resPath)) {
+                    if (isContentOverflow(bytes, resPath)) {
                         logger.debug("Overflow! resource path: {}, content size: {}, timeStamp: {}", resPath,
                                 bytes.length, ts);
                         if (existing) {
@@ -480,7 +440,6 @@ public class JDBCResourceStore extends PushdownResourceStore {
         executeSql(new SqlOperation() {
             @Override
             public void execute(Connection connection) throws SQLException, IOException {
-                byte[] wrappedContent = wrapContent(content);
                 synchronized (resPath.intern()) {
                     JDBCResourceSQL sqls = getJDBCResourceSQL(getMetaTableName(resPath));
                     if (!existsImpl(resPath)) {
@@ -488,7 +447,7 @@ public class JDBCResourceStore extends PushdownResourceStore {
                             throw new IllegalStateException(
                                     "For not exist file. OldTS have to be 0. but Actual oldTS is : " + oldTS);
                         }
-                        if (isContentOverflow(wrappedContent, resPath)) {
+                        if (isContentOverflow(content, resPath)) {
                             logger.debug("Overflow! resource path: {}, content size: {}", resPath, content.length);
                             pstat = connection.prepareStatement(sqls.getInsertSqlWithoutContent());
                             pstat.setString(1, resPath);
@@ -508,7 +467,7 @@ public class JDBCResourceStore extends PushdownResourceStore {
                             pstat = connection.prepareStatement(sqls.getInsertSql());
                             pstat.setString(1, resPath);
                             pstat.setLong(2, newTS);
-                            pstat.setBlob(3, new BufferedInputStream(new ByteArrayInputStream(wrappedContent)));
+                            pstat.setBlob(3, new BufferedInputStream(new ByteArrayInputStream(content)));
                             pstat.executeUpdate();
                         }
                     } else {
@@ -528,7 +487,7 @@ public class JDBCResourceStore extends PushdownResourceStore {
                         try {
                             // "update {0} set {1}=? where {3}=?"
                             pstat2 = connection.prepareStatement(sqls.getUpdateContentSql());
-                            if (isContentOverflow(wrappedContent, resPath)) {
+                            if (isContentOverflow(content, resPath)) {
                                 logger.debug("Overflow! resource path: {}, content size: {}", resPath, content.length);
                                 pstat2.setNull(1, Types.BLOB);
                                 pstat2.setString(2, resPath);
@@ -545,7 +504,7 @@ public class JDBCResourceStore extends PushdownResourceStore {
                                 }
                             } else {
                                 pstat2.setBinaryStream(1,
-                                        new BufferedInputStream(new ByteArrayInputStream(wrappedContent)));
+                                        new BufferedInputStream(new ByteArrayInputStream(content)));
                                 pstat2.setString(2, resPath);
                                 pstat2.executeUpdate();
                             }
