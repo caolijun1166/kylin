@@ -24,6 +24,7 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.NavigableSet;
 
@@ -80,12 +81,13 @@ public class ResourceStoreTest {
         // reset any leftover garbage
         new ResourceTool().resetR(store, folder);
 
-        store.putResource(folder + "/res1", new StringEntity("data1"), 1000, StringEntity.serializer);
-        store.putResource(folder + "/res2", new StringEntity("data2"), 2000, StringEntity.serializer);
-        store.putResource(folder + "/sub/res3", new StringEntity("data3"), 3000, StringEntity.serializer);
-        store.putResource(folder + "/res4", new StringEntity("data4"), 4000, StringEntity.serializer);
+        store.checkAndPutResource(folder + "/res1", new StringEntity("data1"), 1000, StringEntity.serializer);
+        store.checkAndPutResource(folder + "/res2", new StringEntity("data2"), 2000, StringEntity.serializer);
+        store.checkAndPutResource(folder + "/sub/res3", new StringEntity("data3"), 3000, StringEntity.serializer);
+        store.checkAndPutResource(folder + "/res4", new StringEntity("data4"), 4000, StringEntity.serializer);
 
         result = store.getAllResources(folder, StringEntity.serializer);
+        Collections.sort(result);
         assertEntity(result.get(0), "data1", 1000);
         assertEntity(result.get(1), "data2", 2000);
         assertEntity(result.get(2), "data4", 4000);
